@@ -1,0 +1,1123 @@
+    
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nof Go - Petite Color Palette Generator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                    colors: {
+                        border: "rgba(255,255,255,0.1)",
+                        background: "#000000",
+                        foreground: "#ffffff",
+                        accent: "#00A2FA",
+                    },
+                    borderRadius: {
+                        'squircle': '18px',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Libraries -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        body, html { margin: 0; padding: 0; height: 100vh; background: #000; color: #fff; overflow: hidden; }
+        #root { position: relative; z-index: 10; height: 100vh; overflow-y: auto; overflow-x: hidden; }
+
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Badges */
+        .badge-icon {
+            display: inline-block; width: 10px; height: 10px; margin-inline-end: 4px;
+            background: currentColor;
+            -webkit-mask-size: contain; mask-size: contain;
+            -webkit-mask-position: center; mask-position: center;
+            -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+        }
+        .badge-check { -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'); }
+        .badge-cross { -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'); }
+
+        /* Range Slider */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #fff; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #333; border-radius: 2px;
+        }
+
+        @keyframes github-hand-wave {
+            0%, 100% { transform: rotate(0deg); }
+            15% { transform: rotate(1.25deg); }
+            30% { transform: rotate(-0.625deg); }
+            45% { transform: rotate(2.75deg); }   
+            60% { transform: rotate(0deg); }
+        }
+        .github-icon-hand {
+            transform-origin: 90% 50%;
+            animation: github-hand-wave 2s ease-in-out infinite;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
+        const { motion, AnimatePresence, useAnimation } = window.Motion;
+
+        const translations = {
+            en: {
+                palette: "Palette", mix: "Mix", brightness: "Brightness",
+                baseColor: "Base Color", mode: "Mode", output: "Output",
+                analogous: "Analogous", triad: "Triad", complementary: "Complementary",
+                splitComp: "Split Complementary", square: "Square", tetradic: "Tetradic", monochromatic: "Monochromatic",
+                firstColor: "First Color", secondColor: "Second Color", steps: "Steps",
+                mixMode: "Mix Mode", lighten: "Lighten", darken: "Darken", amount: "Amount",
+                useSteps: "Use Steps", creditTitle: "Credits", creditDescription: "The existence of this project wouldn't've been possible without the following:",
+                poweredBy: "Powered by",
+                contrastRatio: "Contrast Ratio", language: "Language", apply: "Apply",
+                contrast: "Contrast"
+            },
+            he: {
+                palette: "פלטה", mix: "ערבוב", brightness: "בהירות",
+                baseColor: "צבע בסיס", mode: "מצב", output: "תוצאה",
+                analogous: "אנלוגי", triad: "משולש", complementary: "משלים",
+                splitComp: "משלים מפוצל", square: "ריבוע", tetradic: "טטרדי", monochromatic: "מונוכרומטי",
+                firstColor: "צבע ראשון", secondColor: "צבע שני", steps: "צעדים",
+                mixMode: "מצב ערבוב", lighten: "הבהרה", darken: "הכהיה", amount: "כמות",
+                useSteps: "השתמש בצעדים", creditTitle: "קרדיטים", creditDescription: "הקיום של פרויקט זה לא היה אפשרי ללא הדברים הבאים:",
+                poweredBy: "מופעל ע״י",
+                contrastRatio: "יחס ניגודיות", language: "שפה", apply: "החל",
+                contrast: "ניגודיות"
+            },
+            it: {
+                palette: "Tavolozza", mix: "Mischia", brightness: "Luminosità",
+                baseColor: "Colore Base", mode: "Modalità", output: "Output",
+                analogous: "Analogo", triad: "Triade", complementary: "Complementare",
+                splitComp: "Complementare Diviso", square: "Quadrato", tetradic: "Tetradico", monochromatic: "Monocromatico",
+                firstColor: "Primo Colore", secondColor: "Secondo Colore", steps: "Passi",
+                mixMode: "Modo Miscela", lighten: "Schiarire", darken: "Scurire", amount: "Quantità",
+                useSteps: "Usa Passi", creditTitle: "Crediti", creditDescription: "L'esistenza di questo progetto non sarebbe stata possibile senza quanto segue:",
+                poweredBy: "Offerto da",
+                contrastRatio: "Rapporto Contrasto", language: "Lingua", apply: "Applica",
+                contrast: "Contrasto"
+            },
+            es: {
+                palette: "Paleta", mix: "Mezcla", brightness: "Brillo",
+                baseColor: "Color Base", mode: "Modo", output: "Resultado",
+                analogous: "Análogo", triad: "Tríada", complementary: "Complementario",
+                splitComp: "Complementario Dividido", square: "Cuadrado", tetradic: "Tetrádico", monochromatic: "Monocromático",
+                firstColor: "Primer Color", secondColor: "Segundo Color", steps: "Pasos",
+                mixMode: "Modo de Mezcla", lighten: "Aclarar", darken: "Oscurecer", amount: "Cantidad",
+                useSteps: "Usar Pasos", creditTitle: "Créditos", creditDescription: "La existencia de este proyecto no habría sido posible sin lo siguiente:",
+                poweredBy: "Desarrollado por",
+                contrastRatio: "Relación de Contraste", language: "Español", apply: "Aplicar",
+                contrast: "Contraste"
+            },
+            pt: {
+                palette: "Paleta", mix: "Mistura", brightness: "Brilho",
+                baseColor: "Cor Base", mode: "Modo", output: "Resultado",
+                analogous: "Análogo", triad: "Tríade", complementary: "Complementar",
+                splitComp: "Complementar Dividido", square: "Quadrado", tetradic: "Tetrádico", monochromatic: "Monocromático",
+                firstColor: "Primeira Cor", secondColor: "Segunda Cor", steps: "Passos",
+                mixMode: "Modo de Mistura", lighten: "Clarear", darken: "Escurecer", amount: "Quantidade",
+                useSteps: "Usar Passos", creditTitle: "Créditos", creditDescription: "A existência deste projeto não teria sido possível sem o seguinte:",
+                poweredBy: "Desenvolvido por",
+                contrastRatio: "Razão de Contraste", language: "Português", apply: "Aplicar",
+                contrast: "Contraste"
+            }
+        };
+
+        const LanguageContext = createContext();
+        const LanguageProvider = ({ children }) => {
+            const [language, setLanguage] = useState('en');
+            const [dir, setDir] = useState('ltr');
+            useEffect(() => setDir(language === 'he' ? 'rtl' : 'ltr'), [language]);
+            const t = (key) => translations[language][key] || key;
+            return (
+                <LanguageContext.Provider value={{ language, setLanguage, dir, t }}>
+                    <div dir={dir} className={dir === 'rtl' ? 'rtl' : 'ltr'}>{children}</div>
+                </LanguageContext.Provider>
+            );
+        };
+        const useLanguage = () => useContext(LanguageContext);
+
+        function cn(...classes) { return classes.filter(Boolean).join(' '); }
+
+        /* --- Refined UI Components --- */
+
+        function FloatingLabelInput({ value, onChange, label }) {
+        const { dir } = useLanguage(); // get text direction (ltr or rtl) from context
+
+        return (
+            <div className="relative mt-1" style={{ width: '120px' }}>
+            <input
+                type="text"
+                value={value}
+                onChange={e => onChange(e.target.value)}
+                className="block bg-[#090909] border border-[#333] text-white rounded-lg px-4 pt-2.5 pb-2.5 focus:border-[#FFFFFF] outline-none peer transition-colors w-full"
+                placeholder=" "
+                style={{ direction: "ltr", textAlign: dir === 'rtl' ? 'right' : 'left' }}
+            />
+            <label
+                className={`absolute text-sm text-gray-500 duration-300 transform -translate-y-4 scale-75 top-2 bg-[#090909] px-2 peer-focus:px-2 peer-focus:text-[#00A2FA] peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 ${dir === 'rtl' ? 'right-2 origin-top-right' : 'left-2 origin-top-left'}`}
+                style={{ borderRadius: '4px' }}
+            >
+                {label}
+            </label>
+            </div>
+        );
+        }
+
+        const Icon = ({ name, size = 20, className }) => {
+            useEffect(() => window.lucide?.createIcons(), [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        // Interactive Color Picker (Bi-directional)
+        const ColorPicker = ({ color, onChange }) => {
+        const { t, dir } = useLanguage();
+        const isRTL = dir === 'rtl';
+        const containerRef = React.useRef(null);
+
+        const [hue, setHue] = React.useState(0);
+        const [sat, setSat] = React.useState(100);
+        const [bright, setBright] = React.useState(100);
+        const [inputValue, setInputValue] = React.useState(color);
+
+        // Display hue is equal to internal hue, no flipping on slider
+        const displayedHue = hue;
+
+        // Sync internal states when external color changes (valid only)
+        React.useEffect(() => {
+            if (chroma.valid(color)) {
+            const hsv = chroma(color).hsv();
+            const newHue = isNaN(hsv[0]) ? 0 : hsv[0];
+            setHue(newHue);
+            setSat(hsv[1] * 100);
+            setBright(hsv[2] * 100);
+            setInputValue(color);
+            }
+        }, [color]);
+
+        // Update external color on HSV change, no hue inversion (slider is not flipped)
+        const updateColor = React.useCallback((h, s, v) => {
+            const newColor = chroma.hsv(h, s / 100, v / 100).hex();
+            onChange(newColor);
+        }, [onChange]);
+
+        // Handle dragging in saturation-brightness picker
+        const handleAreaMouseDown = React.useCallback((e) => {
+            e.preventDefault();
+            const handleMove = (moveEvent) => {
+            const rect = containerRef.current.getBoundingClientRect();
+            let x = Math.max(0, Math.min((moveEvent.clientX - rect.left) / rect.width, 1));
+            let y = Math.max(0, Math.min(1 - (moveEvent.clientY - rect.top) / rect.height, 1));
+
+            const newSat = isRTL ? (1 - x) * 100 : x * 100;
+            const newBright = y * 100;
+
+            setSat(newSat);
+            setBright(newBright);
+            updateColor(hue, newSat, newBright);
+            };
+            const handleUp = () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleUp);
+            };
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', handleUp);
+            handleMove(e);
+        }, [updateColor, hue, isRTL]);
+
+        // Immediately update hue state and external color on slider change (no debounce)
+        const handleHueChange = (e) => {
+            const val = Number(e.target.value);
+            setHue(val);
+            updateColor(val, sat, bright);
+        };
+
+        // Manual input floating label handler with validation
+        const handleInputChange = (val) => {
+            setInputValue(val);
+            if (chroma.valid(val)) {
+            onChange(val);
+            }
+        };
+
+        // Contrast calculation
+        const contrast = chroma.contrast(chroma.valid(inputValue) ? inputValue : '#000', '#000');
+
+        return (
+            <div className="glass-panel rounded-squircle p-4 flex flex-col gap-4 w-full max-w-[320px]">
+            <div
+                ref={containerRef}
+                onMouseDown={handleAreaMouseDown}
+                className="relative w-full h-32 rounded-lg cursor-crosshair overflow-hidden"
+                style={{
+                background: isRTL
+                    ? `linear-gradient(to left, #fff, hsl(${hue}, 100%, 50%)), linear-gradient(to top, #000, transparent)`
+                    : `linear-gradient(to right, #fff, hsl(${hue}, 100%, 50%)), linear-gradient(to top, #000, transparent)`,
+                backgroundBlendMode: 'multiply'
+                }}
+            >
+                <div
+                className="absolute w-3 h-3 rounded-full border-2 border-white shadow-sm pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+                style={{
+                    left: isRTL ? `${100 - sat}%` : `${sat}%`,
+                    top: `${100 - bright}%`
+                }}
+                />
+            </div>
+
+            <input
+                type="range"
+                min="0"
+                max="360"
+                step="1"
+                value={displayedHue}
+                onChange={handleHueChange}
+                className="w-full h-3 rounded-lg appearance-none cursor-pointer"
+                style={{
+                background: isRTL
+                    ? 'linear-gradient(to left, red, yellow, lime, cyan, blue, magenta, red)'
+                    : 'linear-gradient(to left, red, magenta, blue, cyan, lime, yellow, red)'
+                }}
+            />
+
+            <div className="flex items-center justify-between gap-2">
+                <FloatingLabelInput value={inputValue} onChange={handleInputChange} label="HEX" />
+                <div className="flex flex-col items-end gap-1">
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t('contrast')}</span>
+                <div className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                    contrast >= 4.5 ? 'bg-blue-950 border-blue-800 text-blue-400' : 'bg-red-950/30 border-red-900/30 text-gray-500'
+                }`}>
+                    {contrast >= 7 ? 'AAA' : (contrast >= 4.5 ? 'AA' : 'XX')}
+                </div>
+                </div>
+            </div>
+            </div>
+        );
+        };
+
+        function adjustColor(hex, percent) {
+        const num = parseInt(hex.slice(1), 16);
+        let r = (num >> 16) + Math.round(255 * percent);
+        let g = ((num >> 8) & 0x00FF) + Math.round(255 * percent);
+        let b = (num & 0x0000FF) + Math.round(255 * percent);
+
+        r = Math.min(255, Math.max(0, r));
+        g = Math.min(255, Math.max(0, g));
+        b = Math.min(255, Math.max(0, b));
+
+        const newHex = "#" + (r.toString(16).padStart(2,'0')) + (g.toString(16).padStart(2,'0')) + (b.toString(16).padStart(2,'0'));
+        return newHex;
+        }
+
+        function CustomSlider({
+        id,
+        min = 0,
+        max = 100,
+        step = 1,
+        value,
+        onValueChange,
+        disabled = false,
+        trackHeight = '8px',
+        thumbWidth = '20px',
+        thumbHeight = '20px',
+        width = '100%',
+        trackFillBorderRadius = '8px',
+        thumbBorderRadius = '50%',
+        thumbBorderWidth = '2px',
+        ariaLabel = 'slider',
+        isRTL = false,
+        keyStep = 1,
+        }) {
+        const sliderRef = useRef(null);
+        const [isDragging, setIsDragging] = useState(false);
+        const [isFocused, setIsFocused] = useState(false);
+        const [isHovered, setIsHovered] = useState(false);
+
+        // Base colors
+        const baseFill = '#00a2fa';  // default fill color
+        const ringBackground = '#111'; // ring background fill for all states
+
+        // Compute derived colors
+        const ringOutlineDefault = adjustColor(baseFill, -0.1); // 10% darker
+        const ringOutlineHovered = adjustColor(baseFill, 0.1);  // 10% lighter
+        const fillHovered = adjustColor(baseFill, 0.1);          // 10% lighter fill
+        const fillActive = adjustColor(baseFill, 0.2);           // 20% lighter fill
+        const ringOutlineActive = '#fff';                        // active ring outline pure white
+
+        const getPercentage = useCallback(() => {
+            return ((value - min) / (max - min)) * 100;
+        }, [value, min, max]);
+
+        const handleInteraction = useCallback(
+            (clientX) => {
+            if (disabled || !sliderRef.current) return;
+            const rect = sliderRef.current.getBoundingClientRect();
+            let percentage;
+            if (isRTL) {
+                percentage = ((rect.right - clientX) / rect.width) * 100;
+            } else {
+                percentage = ((clientX - rect.left) / rect.width) * 100;
+            }
+            percentage = Math.max(0, Math.min(100, percentage));
+            let newValue = min + (percentage / 100) * (max - min);
+            if (step !== 0) newValue = Math.round(newValue / step) * step;
+            newValue = Math.max(min, Math.min(max, newValue));
+            onValueChange(newValue);
+            },
+            [disabled, min, max, step, onValueChange, isRTL]
+        );
+
+        const handleMouseDown = (e) => {
+            if (disabled) return;
+            setIsDragging(true);
+            handleInteraction(e.clientX);
+            sliderRef.current?.focus();
+        };
+
+        const handleMouseMove = useCallback(
+            (e) => {
+            if (isDragging) handleInteraction(e.clientX);
+            },
+            [isDragging, handleInteraction]
+        );
+
+        const handleMouseUp = useCallback(() => {
+            setIsDragging(false);
+        }, []);
+
+        const handleKeyDown = (e) => {
+            if (disabled) return;
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            const direction = (e.key === 'ArrowRight' ? 1 : -1) * (isRTL ? -1 : 1);
+            const increment = keyStep || step;
+            const newValue = Math.max(min, Math.min(max, value + direction * increment));
+            onValueChange(newValue);
+            }
+        };
+
+        useEffect(() => {
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+            return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            };
+        }, [handleMouseMove, handleMouseUp]);
+
+        const percentage = getPercentage();
+
+        // Fill for the range bar
+        const fillColor = isFocused ? fillActive : isHovered ? fillHovered : baseFill;
+
+        // Thumb background always ring background #111 as requested
+        const thumbColor = ringBackground;
+
+        // Thumb border changes:
+        // default: 10% darker than baseFill, hover: 10% lighter, focus: white (#fff)
+        let thumbBorderColor;
+        if (isFocused) {
+            thumbBorderColor = ringOutlineActive;
+        } else if (isHovered) {
+            thumbBorderColor = ringOutlineHovered;
+        } else {
+            thumbBorderColor = ringOutlineDefault;
+        }
+
+        const wrapperClasses = `namer-ui-custom-slider-${id}-custom-slider-wrapper${disabled ? ' disabled' : ''}`;
+        const trackClass = `namer-ui-custom-slider-${id}-slider-track`;
+        const rangeClass = `namer-ui-custom-slider-${id}-slider-range`;
+        const thumbClass = `namer-ui-custom-slider-${id}-slider-thumb`;
+
+        return (
+            <div>
+            <style>{`
+                .${wrapperClasses} {
+                position: relative;
+                width: ${width};
+                height: ${thumbHeight};
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                touch-action: none;
+                outline: none;
+                border-radius: ${trackFillBorderRadius};
+                background-color: transparent;
+                }
+                .${wrapperClasses}.disabled {
+                cursor: not-allowed;
+                opacity: 0.5;
+                }
+                .${trackClass}, .${rangeClass} {
+                position: absolute;
+                height: ${trackHeight};
+                border-radius: ${trackFillBorderRadius};
+                top: 50%;
+                transform: translateY(-50%);
+                width: 100%;
+                transition: background-color 0.3s ease;
+                }
+                .${trackClass} {
+                background-color: transparent;
+                }
+                .${rangeClass} {
+                background-color: ${fillColor};
+                width: ${percentage}%;
+                }
+                .${thumbClass} {
+                position: absolute;
+                width: ${thumbWidth};
+                height: ${thumbHeight};
+                border-radius: ${thumbBorderRadius};
+                top: 50%;
+                transform: translateY(-50%);
+                background-color: ${thumbColor};
+                border: ${thumbBorderWidth} solid ${thumbBorderColor};
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                transition: background-color 0.3s ease, border-color 0.3s ease;
+                ${isRTL ? `right: calc(${percentage}% - ${thumbWidth} / 2)` : `left: calc(${percentage}% - ${thumbWidth} / 2)`};
+                }
+            `}</style>
+
+            <div
+                ref={sliderRef}
+                className={wrapperClasses}
+                onMouseDown={handleMouseDown}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                tabIndex={disabled ? -1 : 0}
+                role="slider"
+                aria-label={ariaLabel}
+                aria-valuemin={min}
+                aria-valuemax={max}
+                aria-valuenow={value}
+                aria-disabled={disabled}
+                dir={isRTL ? 'rtl' : 'ltr'}
+            >
+                <div className={trackClass} />
+                <div className={rangeClass} />
+                <div className={thumbClass} />
+            </div>
+            </div>
+        );
+        };
+
+        // More Refined Color Card
+        const ColorCard = ({ hex, label }) => {
+            const { t, dir } = useLanguage();
+            const [copied, setCopied] = useState(false);
+            const contrast = useMemo(() => { try { return chroma.contrast(hex, '#000'); } catch { return 0; } }, [hex]);
+            
+            const handleCopy = () => {
+                navigator.clipboard.writeText(hex.toUpperCase());
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            };
+
+            return (
+                <motion.div 
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="min-w-[236px] glass-panel rounded-squircle p-3 flex flex-col gap-3 transition-transform hover:border-[#242424]"
+                >
+                    <div className="relative h-20 w-full rounded-xl overflow-hidden border border-white/10" style={{ backgroundColor: hex }}>
+                        {label && <span className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-[10px] px-2 py-0.5 rounded text-white">{label}</span>}
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                        <code className="text-xs font-mono text-gray-300">{hex.toUpperCase()}</code>
+                        <button onClick={handleCopy} className="p-1.5 bg-white/5 hover:bg-[#242424] rounded-lg transition-colors text-gray-300 hover:text-white">
+                            {copied ? <Icon name="check" size={14} className="text-green-400"/> : <Icon name="copy" size={14}/>}
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2 border-t border-white/5">
+                        <div className="w-8 h-8 flex items-center justify-center rounded-lg font-bold text-white text-sm border border-white/10 shadow-inner" style={{ backgroundColor: hex }}>
+                            {dir === 'rtl' ? 'ל' : 'A'}
+                        </div>
+                        <div className="flex flex-col w-full">
+                            <div className="flex justify-between w-full">
+                                <span className="text-[10px] text-gray-500">{t('contrastRatio')}:</span>
+                                <span className="text-xs font-mono font-bold">{contrast.toFixed(2)}</span>
+                            </div>
+                            <div className="flex gap-2 mt-1">
+                                <span className={`text-[9px] px-1.5 rounded border flex items-center ${contrast >= 4.5 ? 'border-green-800 bg-green-950 text-green-400' : 'border-gray-800 text-gray-600'}`}>
+                                    <span className={`badge-icon ${contrast >= 4.5 ? 'badge-check' : 'badge-cross'}`}></span> AA
+                                </span>
+                                <span className={`text-[9px] px-1.5 rounded border flex items-center ${contrast >= 7 ? 'border-green-800 bg-green-950 text-green-400' : 'border-gray-800 text-gray-600'}`}>
+                                    <span className={`badge-icon ${contrast >= 7 ? 'badge-check' : 'badge-cross'}`}></span> AAA
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </motion.div>
+            );
+        };
+
+        const Credits = () => {
+            const { t, dir } = useLanguage();
+            const markdown = `
+[Color Picker](https://21st.dev/community/components/uplusion23/color-picker/color-picker-with-swatches-and-onchange) by [Trevor McIntire](https://21st.dev/community/uplusion23)
+
+[vue-color-wheel](https://vue-color-wheel.vercel.app/) by [Robert Shaw](https://github.com/xiaoluoboding)
+
+[Resizable Navbar](https://ui.aceternity.com/components/resizable-navbar) by [Aceternity UI](https://ui.aceternity.com/)
+
+[Limelight Nav](https://21st.dev/easemize/limelight-nav/default) by [EaseMize UI](https://21st.dev/easemize)
+
+[Chronicle Button](https://codepen.io/Haaguitos/pen/OJrVZdJ) by [Haaguitos](https://codepen.io/Haaguitos)
+
+[すりガラスなプロフィールカード](https://codepen.io/ash_creator/pen/zYaPZLB) by [あしざわ - Webクリエイター](https://codepen.io/ash_creator)
+
+[AnimateIcons](https://animateicons.vercel.app/)
+
+[react@18](https://unpkg.com/react@18/umd/react.production.min.js)
+
+[react-dom@18](https://unpkg.com/react-dom@18/umd/react-dom.production.min.js)
+
+[babel](https://unpkg.com/@babel/standalone/babel.min.js)
+
+[framer-motion](https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js)
+
+[chroma-js](https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.4.2/chroma.min.js)
+    
+[lucide](https://unpkg.com/lucide@latest)
+
+[radix-ui](https://www.npmjs.com/package/radix-ui)
+
+[Custom Checkbox](https://21st.dev/Edil-ozi/custom-checkbox/default) by [Edil Ozi](https://21st.dev/Edil-ozi)
+
+[チェックしないと押せないボタン](https://codepen.io/ash_creator/pen/JjZReNm) by [あしざわ - Webクリエイター](https://codepen.io/ash_creator)
+
+[Input Floating Label animation](https://codepen.io/Mahe76/pen/qBQgXyK) by [Elpeeda](https://codepen.io/Mahe76)
+
+[View transitions - Demo](https://codepen.io/stefanjudis/pen/ByBbNGQ) by [Stefan Judis](https://codepen.io/stefanjudis)
+`;
+            const renderEntry = (entry) => {
+                const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                const parts = [];
+                let lastIndex = 0, match;
+                while ((match = regex.exec(entry)) !== null) {
+                    if (match.index > lastIndex) parts.push(entry.slice(lastIndex, match.index));
+                    parts.push(<a key={match.index} href={match[2]} target="_blank" className="text-accent hover:text-white transition-colors">{match[1]}</a>);
+                    lastIndex = regex.lastIndex;
+                }
+                if (lastIndex < entry.length) parts.push(entry.slice(lastIndex));
+                return parts;
+            };
+            const entries = markdown.trim().split('\n').map(e => e.trim()).filter(Boolean);
+            return (
+                <div className="glass-panel p-6 rounded-squircle mt-12">
+                    <h3 className="font-bold text-lg mb-2">{t('creditTitle')}</h3>
+                    <p className="text-gray-400 text-sm mb-4">{t('creditDescription')}</p>
+                    <ul className="grid grid-cols-1 gap-x-8 gap-y-2 text-xs text-gray-400" style={{ direction: 'ltr', textAlign: dir==='rtl' ? 'right' : 'left' }}>
+                        {entries.map((e, i) => <li key={i}>{renderEntry(e)}</li>)}
+                    </ul>
+                </div>
+            );
+        };
+
+        const Navbar = ({ activeTab, setActiveTab, onLang }) => {
+        const { t, dir } = useLanguage();
+        const navRef = React.useRef(null);
+        const [lineStyle, setLineStyle] = React.useState({ left: 0, width: 0 });
+
+        React.useEffect(() => {
+            if (navRef.current) {
+            const btn = navRef.current.querySelector(`[data-tab="${activeTab}"]`);
+            if (btn) setLineStyle({ left: btn.offsetLeft, width: btn.offsetWidth });
+            }
+        }, [activeTab, dir]);
+
+        // CSS spin animation class: infinite slow spin
+        const spinClass = "animate-spin-slow";
+
+        return (
+            <nav className="fixed top-0 w-full z-50 flex justify-center pt-6 px-4">
+            <div className="glass-panel h-14 px-2 rounded-2xl flex items-center justify-between min-w-[320px] max-w-5xl w-full relative">
+                <a href="#" className="flex items-center gap-3 px-4 font-bold text-lg z-20 hover:text-accent transition-colors">
+                <img src="logo.png" className="w-8 h-8 rounded-lg" onError={(e) => e.target.style.display = 'none'} />
+                <span>{dir === 'rtl' ? 'נוף Go' : 'Nof Go'}</span>
+                </a>
+                <div className="relative flex h-full items-center z-10" ref={navRef}>
+                {['palette', 'mix', 'brightness'].map(tab => (
+                    <button key={tab} data-tab={tab} onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 mx-1 rounded-lg text-sm font-medium z-20 transition-all duration-300 
+                        ${activeTab === tab ? "text-white" : "text-gray-400 hover:text-gray-200"}`}>
+                    {t(tab)}
+                    </button>
+                ))}
+                <div className="absolute bottom-0 h-[3px] bg-accent rounded-t-full shadow-[0_-2px_10px_rgba(0,167,250,0.5)] transition-all duration-300 ease-out"
+                    style={{ left: lineStyle.left, width: lineStyle.width }} />
+                </div>
+
+                <div className="flex items-center gap-1 px-2 z-20">
+                <button onClick={onLang} className="p-2 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors">
+                    <Icon name="globe" />
+                </button>
+
+                <a href="https://github.com/Northstrix/nof-go" target="_blank" className="p-2 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors inline-flex">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5 .08-1.25-.27-2.48-1-3.5 .28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5 -2.64-.5-5.36-.5-8 0 C6 2 5 2 5 2 c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9 c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65 -.17.6-.22 1.23-.15 1.85v4"/>
+                    <path className="github-icon-hand" d="M9 18c-4.51 2-5-2-7-2" />
+                </svg>
+                </a>
+                </div>
+            </div>
+            </nav>
+        );
+        };
+
+        // Add this Tailwind CSS custom animation in your <style> or Tailwind config:
+        <style>
+        {`
+        @tailwind base;
+        @tailwind components;
+        @tailwind utilities;
+
+        @layer utilities {
+            .animate-spin-slow {
+            animation: spin 4s linear infinite;
+            }
+        }
+        `}
+        </style>
+
+        const Loader = ({ onComplete }) => {
+        const [progress, setProgress] = React.useState(0);
+        const [text, setText] = React.useState("Initializing Core...");
+        
+        React.useEffect(() => {
+            setText("Loading...");
+            let progress = 0;
+            const timer = setInterval(() => {
+                progress += 10;
+                setProgress(progress);
+                if (progress >= 99.9) {
+                    clearInterval(timer);
+                    setTimeout(onComplete, 100);
+                }
+            }, 50);
+            return () => clearInterval(timer);
+        }, [onComplete]);
+        
+        return (
+            <div className="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center font-mono text-accent">
+            <div className="text-6xl font-black mb-8 tracking-tighter animate-pulse">NOF GO</div>
+            <div className="w-64 h-1 bg-gray-900 rounded-full overflow-hidden">
+                <div 
+                className="h-full bg-accent shadow-[0_0_15px_#00A2FA]" 
+                style={{ width: `${progress}%`, transition: 'width 0.1s linear' }}
+                />
+            </div>
+            <div className="mt-4 text-xs opacity-70">
+                {text} <span className="text-white ml-2">{progress}%</span>
+            </div>
+            </div>
+        );
+        };
+
+        function StaticSelect({ options, selectedValue, onChange, label }) {
+        const { t, dir } = useLanguage();
+        const isRTL = dir === 'rtl';
+
+        return (
+            <div>
+            <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3 block">
+                {label}
+            </label>
+            <div
+                className="glass-panel bg-black/50 border border-white/10 rounded-lg overflow-y-auto"
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+            >
+                {options.map(opt => {
+                const isSelected = opt.value === selectedValue;
+                return (
+                    <button
+                    key={opt.value}
+                    onClick={() => onChange(opt.value)}
+                    className={`w-full px-2.5 py-1.5 text-[14px] rounded transition-colors focus:outline-none flex items-center ${
+                        isSelected
+                        ? "bg-accent text-black font-semibold"
+                        : "text-gray-300 hover:bg-white/10"
+                    }`}
+                    style={{
+                        direction: isRTL ? 'rtl' : 'ltr',
+                        justifyContent: 'flex-start' // Align text to start side
+                    }}
+                    >
+                    {t(opt.label)}
+                    </button>
+                );
+                })}
+            </div>
+            </div>
+        );
+        };
+
+        function NamerUiBadge({ 
+            href = "https://namer-ui.vercel.app/", 
+            isRTL = false, 
+            isMobile = false, 
+            poweredByText = "Powered by", 
+            namerUIName = "Namer UI" 
+        }) {
+        const [isHovered, setIsHovered] = React.useState(false);
+        return (
+            <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            dir={isRTL ? "rtl" : "ltr"}
+            className="inline-flex flex-col rounded-squircle select-none"
+            style={{
+                background: isHovered ? "#141414" : "#111",
+                border: `1px solid ${isHovered ? "#303030" : "#242424"}`,
+                padding: isMobile ? "8px 16px 16px 16px" : "16px 24px 24px 24px",
+                userSelect: "none",
+                maxWidth: "max-content",
+                textAlign: isRTL ? "right" : "left",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            >
+            <span
+                className="text-[var(--sub-foreground)] text-[12px] mb-2"
+                style={{ userSelect: "none" }}
+            >
+                {poweredByText}
+            </span>
+            <div
+                className="inline-flex items-center gap-3"
+                style={{
+                justifyContent: isRTL ? "flex-end" : "flex-start",
+                }}
+            >
+                <img
+                src="namer-ui-logo.png"
+                alt={namerUIName}
+                width={32}
+                height={32}
+                style={{ objectFit: "contain", display: "inline-block" }}
+                />
+                <span
+                className="font-bold text-base text-[var(--foreground)] select-none"
+                dir={isRTL ? "rtl" : "ltr"}
+                >
+                {namerUIName}
+                </span>
+            </div>
+            </a>
+        );
+        };
+
+        const App = () => {
+            const [loading, setLoading] = useState(true);
+            const { t, setLanguage, dir } = useLanguage();
+            const [activeTab, setActiveTab] = useState('palette');
+            const [langModal, setLangModal] = useState(false);
+
+            // State
+            const [baseColor, setBaseColor] = useState("#00A2FA");
+            const [harmony, setHarmony] = useState("analogous");
+            
+            const [mix1, setMix1] = useState("#00A2FA");
+            const [mix2, setMix2] = useState("#FA00A2");
+            const [mixMode, setMixMode] = useState("rgb");
+            const [mixSteps, setMixSteps] = useState(5);
+            const [isStepMode, setIsStepMode] = useState(true);
+
+            const [brightBase, setBrightBase] = useState("#00A2FA");
+            const [brightMode, setBrightMode] = useState("lighten"); // 'lighten' or 'darken'
+            const [brightSteps, setBrightSteps] = useState(6);  
+            
+            useEffect(() => { if(!loading && window.lucide) window.lucide.createIcons(); }, [loading, activeTab]);
+
+            const harmonies = useMemo(() => {
+                if (!chroma.valid(baseColor)) return [];
+                const h = chroma(baseColor).get('hsl.h');
+                const s = chroma(baseColor).get('hsl.s');
+                const l = chroma(baseColor).get('hsl.l');
+                const hue = (d) => chroma.hsl((h + d) % 360, s, l).hex();
+                switch(harmony) {
+                    case 'analogous': return [hue(-30), baseColor, hue(30)];
+                    case 'triad': return [baseColor, hue(120), hue(240)];
+                    case 'complementary': return [baseColor, hue(180)];
+                    case 'splitComp': return [baseColor, hue(150), hue(210)];
+                    case 'square': return [baseColor, hue(90), hue(180), hue(270)];
+                    case 'tetradic': return [baseColor, hue(60), hue(180), hue(240)];
+                    case 'monochromatic': return chroma.scale([chroma(baseColor).darken(2), baseColor, chroma(baseColor).brighten(2)]).mode('lch').colors(5);
+                    default: return [baseColor];
+                }
+            }, [baseColor, harmony]);
+
+            const mixes = useMemo(() => {
+                if (!chroma.valid(mix1) || !chroma.valid(mix2)) return [];
+                const scale = chroma.scale([mix1, mix2]).mode(mixMode);
+                return isStepMode ? scale.colors(mixSteps) : [mix1, scale(mixSteps/100).hex(), mix2]; // Percentage logic reused mixSteps var for simplicity
+            }, [mix1, mix2, mixMode, mixSteps, isStepMode]);
+
+            const brights = useMemo(() => {
+            if (!chroma.valid(brightBase)) return [];
+            const c = chroma(brightBase);
+            const steps = brightSteps;
+
+            return brightMode === 'lighten'
+                ? chroma.scale([c.hex(), '#ffffff']).mode('lab').colors(steps)
+                : chroma.scale([c.hex(), '#000000']).mode('lab').colors(steps);
+            }, [brightBase, brightMode, brightSteps]);
+
+            if (loading) return <Loader onComplete={() => setLoading(false)} />;
+
+            return (
+                <>
+                    <Navbar activeTab={activeTab} setActiveTab={setActiveTab} onLang={() => setLangModal(true)} />
+                    
+                        <AnimatePresence>
+                        {langModal && (
+                            <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                            onClick={() => setLangModal(false)}
+                            >
+                            <motion.div
+                                initial={{ scale: 0.9 }}
+                                animate={{ scale: 1 }}
+                                exit={{ scale: 0.9 }}
+                                className="glass-panel p-4 rounded-xl flex flex-col gap-2 min-w-[200px]"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <h2 className="text-center font-semibold text-lg mb-1 text-accent">{t('language')}</h2>
+                                {[{ c: 'en', l: 'English' }, { c: 'he', l: 'עברית' }, { c: 'it', l: 'Italiano' }, { c: 'es', l: 'Español' }, { c: 'pt', l: 'Português' }].map((l) => (
+                                <button
+                                    key={l.c}
+                                    onClick={() => {
+                                    setLanguage(l.c);
+                                    setLangModal(false);
+                                    }}
+                                    className="py-2 rounded-lg bg-white/10 hover:bg-white/20 hover:text-accent transition-all border border-white/10 text-center text-sm font-medium"
+                                >
+                                    {l.l}
+                                </button>
+                                ))}
+                            </motion.div>
+                            </motion.div>
+                        )}
+                        </AnimatePresence>
+
+                        <main className="pt-28 pb-12 px-4 max-w-7xl mx-auto flex flex-col gap-8 min-h-screen">
+                        <motion.div layout initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            {/* Sidebar / Controls Area */}
+                            <div className="lg:col-span-4 flex flex-col gap-6">
+                            <div className="glass-panel p-6 rounded-squircle space-y-6 sticky top-28">
+                                {activeTab === 'palette' && (
+                                <>
+                                    <div>
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3 block">{t('baseColor')}</label>
+                                    <ColorPicker color={baseColor} onChange={setBaseColor} />
+                                    </div>
+                                    <StaticSelect
+                                    options={[
+                                        { value: "analogous", label: "analogous" },
+                                        { value: "triad", label: "triad" },
+                                        { value: "complementary", label: "complementary" },
+                                        { value: "splitComp", label: "splitComp" },
+                                        { value: "square", label: "square" },
+                                        { value: "tetradic", label: "tetradic" },
+                                        { value: "monochromatic", label: "monochromatic" },
+                                    ]}
+                                    selectedValue={harmony}
+                                    onChange={setHarmony}
+                                    label={t("mode")}
+                                    />
+                                </>
+                                )}
+                                {activeTab === 'mix' && (
+                                <>
+                                    <div>
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3 block">{t('firstColor')}</label>
+                                    <ColorPicker color={mix1} onChange={setMix1} />
+                                    </div>
+                                    <div>
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3 block">{t('secondColor')}</label>
+                                    <ColorPicker color={mix2} onChange={setMix2} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] text-gray-500 uppercase block mb-1">{t('mixMode')}</label>
+                                        <select
+                                        value={mixMode}
+                                        onChange={e => setMixMode(e.target.value)}
+                                        className="w-full rounded-lg border border-white/10 bg-black text-gray-300 uppercase text-xs p-2 shadow-sm focus:outline-none focus:border-accent"
+                                        style={{ direction: dir === 'rtl' ? 'rtl' : 'ltr' }}
+                                        >
+                                        {['rgb', 'lch', 'lab', 'hsl'].map(m => (
+                                            <option key={m} value={m} className="bg-black text-gray-300">
+                                            {m}
+                                            </option>
+                                        ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-gray-500 uppercase block mb-1">Method</label>
+                                        <select
+                                        value={isStepMode ? 'steps' : 'percent'}
+                                        onChange={e => setIsStepMode(e.target.value === 'steps')}
+                                        className="w-full rounded-lg border border-white/10 bg-black text-gray-300 uppercase text-xs p-2 shadow-sm focus:outline-none focus:border-accent"
+                                        style={{ direction: dir === 'rtl' ? 'rtl' : 'ltr' }}
+                                        >
+                                        <option value="steps" className="bg-black text-gray-300">Steps</option>
+                                        <option value="percent" className="bg-black text-gray-300">Percent</option>
+                                        </select>
+                                    </div>
+                                    </div>
+                                    <div>
+                                    <label className="text-xs text-gray-500 mb-2 block flex justify-between">
+                                        <span>{isStepMode ? t('steps') : t('amount')}</span>
+                                        <span className="text-accent font-mono">{mixSteps}</span>
+                                    </label>
+                                    <CustomSlider
+                                        id="mix-steps-slider"
+                                        min={isStepMode ? 3 : 0}
+                                        max={isStepMode ? 102 : 100}
+                                        step={1}
+                                        value={mixSteps}
+                                        onValueChange={setMixSteps}
+                                        isRTL={dir === 'rtl'}
+                                        ariaLabel="Mix Steps"
+                                    />
+                                    </div>
+                                </>
+                                )}
+                                {activeTab === 'brightness' && (
+                                <>
+                                <div>
+                                    <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-3 block">{t('baseColor')}</label>
+                                    <ColorPicker color={brightBase} onChange={setBrightBase} />
+                                </div>
+
+                                <div className="flex bg-black/50 rounded-lg border border-white/10 p-1 mb-4">
+                                    <button
+                                    onClick={() => setBrightMode('lighten')}
+                                    className={`flex-1 py-2 text-xs rounded transition-colors ${
+                                        brightMode === 'lighten' ? 'bg-accent text-black font-semibold' : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                    >
+                                    {t('lighten')}
+                                    </button>
+                                    <button
+                                    onClick={() => setBrightMode('darken')}
+                                    className={`flex-1 py-2 text-xs rounded transition-colors ${
+                                        brightMode === 'darken' ? 'bg-accent text-black font-semibold' : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                    >
+                                    {t('darken')}
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs text-gray-500 mb-2 block flex justify-between">
+                                    <span>{t('steps')}</span>
+                                    <span className="text-accent font-mono">{brightSteps}</span>
+                                    </label>
+                                    <CustomSlider
+                                    id="brightness-steps-slider"
+                                    min={3}
+                                    max={102}
+                                    step={1}
+                                    value={brightSteps}
+                                    onValueChange={setBrightSteps}
+                                    isRTL={dir === 'rtl'}
+                                    ariaLabel="Brightness Steps"
+                                    />
+                                </div>
+                                </>
+                                )}
+                            </div>
+                            </div>
+
+                            {/* Main Display Area */}
+                            <div className="lg:col-span-8 space-y-6">
+                            <div className="flex items-center gap-2 text-gray-400 text-sm border-b border-white/10 pb-2 mb-4">
+                                <Icon name="layout-grid" size={16} />
+                                <span className="uppercase tracking-widest font-semibold">{t('output')}</span>
+                            </div>
+                            
+                            <motion.div layout className="grid grid-cols-[repeat(auto-fit,minmax(236px,1fr))] gap-4">
+                                {activeTab === 'palette' && harmonies.map((c, i) => <ColorCard key={i} hex={c} />)}
+                                {activeTab === 'mix' && mixes.map((c, i) => (
+                                <ColorCard key={i} hex={c} label={!isStepMode && i === 1 ? `${mixSteps}%` : undefined} />
+                                ))}
+                                {activeTab === 'brightness' && brights.map((c, i) => <ColorCard key={i} hex={c} />)}
+                            </motion.div>
+
+                            <Credits />
+
+                            <div className="flex justify-center pt-8">
+                                <NamerUiBadge poweredByText={t('poweredBy')} namerUIName={dir === 'rtl' ? 'נמר UI' : 'Namer UI'} isRTL={dir === 'rtl'} />
+                            </div>
+                            
+                            <footer className="text-center text-gray-600 text-xs pb-8 pt-4" dir="ltr">
+                                Made by <a href="https://maxim-bortnikov.netlify.app/" target="_blank" className="text-accent hover:underline ml-1">Maxim Bortnikov</a> using <a href="https://nextjs.org" target="_blank" className="text-accent hover:underline ml-1">Next.js</a>, <a href="https://www.perplexity.ai" target="_blank" className="text-accent hover:underline ml-1">Perplexity</a>, <a href="https://firebase.studio" target="_blank" className="text-accent hover:underline ml-1">Firebase Studio</a>, and <a href="https://aistudio.google.com" target="_blank" className="text-accent hover:underline ml-1">Google AI Studio</a>.
+                            </footer>
+                            </div>
+                        </motion.div>
+                        </main>
+
+                </>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+
+        root.render(<LanguageProvider><App /></LanguageProvider>);
+    </script>
+</body>
+</html>
