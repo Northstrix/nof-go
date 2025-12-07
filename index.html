@@ -1100,11 +1100,25 @@
 
                             <Credits />
 
-                            <div className="flex justify-center pt-8">
-                                <NamerUiBadge poweredByText={t('poweredBy')} namerUIName={dir === 'rtl' ? 'נמר UI' : 'Namer UI'} isRTL={dir === 'rtl'} />
+                            <div
+                              className="flex flex-col items-center pt-8 space-y-6"
+                            >
+                              <NamerUiBadge
+                                poweredByText={t('poweredBy')}
+                                namerUIName={dir === 'rtl' ? 'נמר UI' : 'Namer UI'}
+                                isRTL={dir === 'rtl'}
+                              />
+                            
+                              <a href="https://www.verifiedtools.info" target="_blank" rel="noopener noreferrer">
+                                <img src="https://www.verifiedtools.info/badge.png" alt="Verified on Verified Tools" width="200" height="54" />
+                              </a>
+                                                      
+                              <a href="https://auraplusplus.com/projects/nof-go" target="_blank" rel="noopener">
+                                <img src="https://auraplusplus.com/images/badges/featured-on-light.svg" alt="Featured on Aura++" />
+                              </a>
                             </div>
                             
-                            <footer className="text-center text-gray-600 text-xs pb-8 pt-4" dir="ltr">
+                            <footer className="text-center text-gray-400 text-xs pb-8 pt-4" dir="ltr">
                                 Made by <a href="https://maxim-bortnikov.netlify.app/" target="_blank" className="text-accent hover:underline">Maxim Bortnikov</a> using <a href="https://nextjs.org" target="_blank" className="text-accent hover:underline">Next.js</a>, <a href="https://www.perplexity.ai" target="_blank" className="text-accent hover:underline">Perplexity</a>, <a href="https://firebase.studio" target="_blank" className="text-accent hover:underline">Firebase Studio</a>, and <a href="https://aistudio.google.com" target="_blank" className="text-accent hover:underline">Google AI Studio</a>.
                             </footer>
                             </div>
@@ -1122,6 +1136,7 @@
 </body>
 
 </html>
+
 
 
 
